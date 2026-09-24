@@ -4,7 +4,7 @@ SQLite persistence layer for reminders.
 import os
 import sqlite3
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 DB_PATH = os.getenv("DB_PATH", "reminders.db")
 
@@ -16,8 +16,7 @@ def _connect() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Create tables/indexes if they don't exist."""
-    # Ensure parent directory exists (Railway volume: /data)
+    """Create tables and indexes if they don't exist."""
     parent = os.path.dirname(DB_PATH)
     if parent and not os.path.exists(parent):
         os.makedirs(parent, exist_ok=True)
