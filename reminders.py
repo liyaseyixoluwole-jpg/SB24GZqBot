@@ -1,10 +1,11 @@
 """
 Natural-language parsing for reminder times.
 """
+import os
 import re
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
-import os
+
 import pytz
 
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "Africa/Algiers"))
