@@ -10,11 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 
 from dotenv import load_dotenv
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -133,8 +129,9 @@ async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def delete_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.args:
-        await update.message.reply_text("Usage: `/delete <reminder_id>`",
-                                        parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            "Usage: `/delete <reminder_id>`", parse_mode=ParseMode.MARKDOWN
+        )
         return
     try:
         rid = int(context.args[0])
@@ -143,11 +140,13 @@ async def delete_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
 
     if db.delete_reminder(rid, update.effective_user.id):
-        await update.message.reply_text(f"✅ Reminder `#{rid}` deleted.",
-                                        parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            f"✅ Reminder `#{rid}` deleted.", parse_mode=ParseMode.MARKDOWN
+        )
     else:
-        await update.message.reply_text(f"❌ Reminder `#{rid}` not found.",
-                                        parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            f"❌ Reminder `#{rid}` not found.", parse_mode=ParseMode.MARKDOWN
+        )
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -163,11 +162,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return
 
         if db.delete_reminder(rid, query.from_user.id):
-            await query.edit_message_text(f"✅ Reminder `#{rid}` deleted.",
-                                          parse_mode=ParseMode.MARKDOWN)
+            await query.edit_message_text(
+                f"✅ Reminder `#{rid}` deleted.", parse_mode=ParseMode.MARKDOWN
+            )
         else:
-            await query.edit_message_text(f"❌ Reminder `#{rid}` not found.",
-                                          parse_mode=ParseMode.MARKDOWN)
+            await query.edit_message_text(
+                f"❌ Reminder `#{rid}` not found.", parse_mode=ParseMode.MARKDOWN
+            )
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -175,10 +176,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not update.message or not update.message.text:
         return
 
-    original = update.message.text.strip()
-    text = original
-
-    # Normalize prefixes
+    text = update.message.text.strip()
     lower = text.lower()
     for prefix in ("remind me ", "remind ", "reminder "):
         if lower.startswith(prefix):
@@ -190,10 +188,18 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     user_id = update.effective_user.id
 
     # ── Weekly ──
-    if "every" in lower and any(d in lower for d in (
-        "monday", "tuesday", "wednesday", "thursday",
-        "friday", "saturday", "sunday",
-    )):
+    if "every" in lower and any(
+        d in lower
+        for d in (
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+        )
+    ):
         parsed = parse_weekly(text)
         if not parsed:
             await update.message.reply_text(
@@ -206,8 +212,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         remind_at = next_weekly_datetime(day, hour, minute)
         label = extract_label(text, default=f"Weekly reminder ({day})")
         rid = db.add_reminder(
-            chat_id, user_id, label, remind_at,
-            repeat_type="weekly", repeat_value=hour * 100 + minute,
+            chat_id,
+            user_id,
+            label,
+            remind_at,
+            repeat_type="weekly",
+            repeat_value=hour * 100 + minute,
         )
         await update.message.reply_text(
             f"✅ Weekly reminder `#{rid}` set for every *{day.capitalize()}* at "
@@ -223,8 +233,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         remind_at = next_daily_datetime(hour, minute)
         label = extract_label(text, default="Daily reminder")
         rid = db.add_reminder(
-            chat_id, user_id, label, remind_at,
-            repeat_type="daily", repeat_value=hour * 100 + minute,
+            chat_id,
+            user_id,
+            label,
+            remind_at,
+            repeat_type="daily",
+            repeat_value=hour * 100 + minute,
         )
         await update.message.reply_text(
             f"✅ Daily reminder `#{rid}` set for *{hour:02d}:{minute:02d}*.\n📝 {label}",
@@ -232,7 +246,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
-    # ── Relative ("in 30 minutes") ──
+    # ── Relative ──
     delta = parse_relative(text)
     if delta:
         remind_at = datetime.now(TIMEZONE) + delta
@@ -279,7 +293,6 @@ async def check_due_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as e:
             logger.exception("Failed to send reminder #%s: %s", rid, e)
 
-        # Reschedule or deactivate
         try:
             if rtype == "daily":
                 hour, minute = divmod(rval, 100)
@@ -319,12 +332,10 @@ def main() -> None:
     db.init_db()
     logger.info("Database initialized at %s", os.getenv("DB_PATH", "reminders.db"))
 
-    # Keep Railway happy with a bound port
     Thread(target=run_health_server, daemon=True).start()
 
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Handlers
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("list", list_cmd))
@@ -332,7 +343,6 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    # Background job every 30 seconds
     app.job_queue.run_repeating(check_due_reminders, interval=30, first=5)
 
     logger.info("🤖 Bot is starting...")
